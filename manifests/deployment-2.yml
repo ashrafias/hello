@@ -1,0 +1,19 @@
+apiVersion : apps/v1
+kind: Deployment
+metadata:
+  name: "kgclustertp-6e77"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: "kgclustertp-6e77"
+  template:
+    metadata:
+      labels:
+        app: "kgclustertp-6e77"
+    spec:
+      containers:
+        - name: "kgclustertp-6e77"
+          image: "acrdemotp.azurecr.io/kgclustertp"
+          ports:
+          - containerPort: 80

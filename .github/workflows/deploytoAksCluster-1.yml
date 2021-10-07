@@ -1,0 +1,50 @@
+on: [push]
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    
+    - uses: azure/docker-login@v1
+      with:
+        login-server: acrdemotp.azurecr.io
+        username: ${{ secrets.acr_acrdemotp_username }}
+        password: ${{ secrets.acr_acrdemotp_password }}
+    
+    - name: Build and push image to ACR
+      id: build-image
+      run: |
+        docker build "$GITHUB_WORKSPACE/" -f  "Dockerfile" -t acrdemotp.azurecr.io/kgclustertp:${{ github.sha }} --label dockerfile-path=Dockerfile
+        docker push acrdemotp.azurecr.io/kgclustertp:${{ github.sha }}
+    
+    - uses: azure/k8s-set-context@v1
+      with:
+         kubeconfig: ${{ secrets.aks_kgclustertp_kubeConfig }}
+      id: login
+    
+    - name: Create namespace
+      run: |
+        namespacePresent=`kubectl get namespace | grep kgcluster_tp82c0 | wc -l`
+        if [ $namespacePresent -eq 0 ]
+        then
+            echo `kubectl create namespace kgcluster_tp82c0`
+        fi
+
+    - uses: azure/k8s-create-secret@v1
+      with:
+        namespace: kgcluster_tp82c0
+        container-registry-url: acrdemotp.azurecr.io
+        container-registry-username: ${{ secrets.acr_acrdemotp_username }}
+        container-registry-password: ${{ secrets.acr_acrdemotp_password }}
+        secret-name: kgclustertpdockerauth
+       
+    - uses: azure/k8s-deploy@v1.2
+      with:
+        namespace: kgcluster_tp82c0
+        manifests: |
+          manifests/deployment-1.yml
+          manifests/service-1.yml
+        images: |
+          acrdemotp.azurecr.io/kgclustertp:${{ github.sha }}
+        imagepullsecrets: |
+          kgclustertpdockerauth
